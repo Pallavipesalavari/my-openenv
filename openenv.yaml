@@ -1,0 +1,3 @@
+version: 1.0
+name: "IAM Privilege Reducer"
+description: "A deterministic environment for reducing AWS IAM permissions to least-privilege."
