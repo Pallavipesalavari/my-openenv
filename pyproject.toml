@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iam-privilege-reducer"
+version = "0.1.0"
+description = "OpenEnv: IAM Privilege Reducer for Cloud Security"
+authors = [
+    {name = "Pallavi Pesalavari"}
+]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "openai",
+    "pydantic"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest"
+]
