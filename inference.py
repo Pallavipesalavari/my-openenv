@@ -42,16 +42,12 @@ def build_user_prompt(step: int, observation: Dict[str, Any], history: List[str]
         return textwrap.dedent(f"""
         Step: {step}
         Goal: {observation.get("goal", "")}
-
         CURRENT POLICY:
         {json.dumps(observation.get("current_policy", {}), indent=2)}
-
         ACCESS LOGS:
         {json.dumps(observation.get("access_logs", []), indent=2)}
-
         HISTORY:
         {history[-2:] if history else "None"}
-
         Rewrite secure IAM policy JSON.
         """)
     except Exception:
@@ -133,3 +129,12 @@ def inference(observation: Dict[str, Any]) -> Dict[str, Any]:
             "error": "Unhandled exception",
             "message": str(e)
         }
+
+
+# ✅ Local test block (safe to keep)
+if __name__ == "__main__":
+    sample_input = {
+        "current_policy": {},
+        "access_logs": []
+    }
+    print(json.dumps(inference(sample_input), indent=2))
