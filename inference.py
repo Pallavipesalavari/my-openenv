@@ -9,6 +9,12 @@ try:
 except Exception:
     OpenAI = None
 
+from env import IAMPrivilegeEnv
+from models import IAMAction
+
+# Initialize environment
+env = IAMPrivilegeEnv()
+
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3-70b-chat-hf")
@@ -29,12 +35,12 @@ def extract_json(text: str) -> Dict[str, Any]:
             return json.loads(match.group(1))
     except Exception:
         pass
-    return {"Version": "2012-10-17", "Statement": []}
+    return {}
 
 
 def call_llm(prompt: str) -> Dict[str, Any]:
     if not client:
-        return {"Version": "2012-10-17", "Statement": []}
+        return {}
 
     try:
         response = client.chat.completions.create(
@@ -44,45 +50,78 @@ def call_llm(prompt: str) -> Dict[str, Any]:
         )
         return extract_json(response.choices[0].message.content)
     except Exception:
-        return {"Version": "2012-10-17", "Statement": []}
+        return {}
 
 
 def inference(observation: Dict[str, Any]) -> Dict[str, Any]:
     try:
-        prompt = f"""
-        Reduce IAM policy to least privilege.
-        Observation:
-        {json.dumps(observation)}
-        Return only valid JSON policy.
-        """
+        # ✅ Reset environment (important)
+        obs = env.reset()
 
-        result = call_llm(prompt)
+        # ✅ Simple deterministic logic (strong baseline)
+        required_actions = [log["action"] for log in obs.access_logs]
 
-        if not isinstance(result, dict):
-            return {"error": "Invalid output"}
+        action_data = {
+            "role_name": "AutoAgent",
+            "updated_policy": {
+                "RoleName": "AutoAgent",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": required_actions,
+                        "Resource": "*"
+                    }
+                ]
+            },
+            "justification": "Keeping only required actions from logs"
+        }
 
-        return result
+        action = IAMAction(**action_data)
+
+        # ✅ CRITICAL: This enables grading
+        obs, reward, done, info = env.step(action)
+
+        return {
+            "observation": obs.dict(),
+            "reward": reward.score,
+            "done": done,
+            "info": info
+        }
 
     except Exception as e:
         return {"error": str(e)}
 
 
-# ✅ REQUIRED STDOUT FORMAT
+# ✅ REQUIRED STDOUT FORMAT (MULTI-TASK)
 if __name__ == "__main__":
     import sys
 
-    sample_input = {
-        "current_policy": {},
-        "access_logs": []
-    }
+    tasks = ["easy", "medium", "hard"]
 
-    sys.stdout.write("[START] task=iam\n")
-    sys.stdout.flush()
+    for task in tasks:
+        env = IAMPrivilegeEnv(task_level=task)
 
-    result = inference(sample_input)
+        sys.stdout.write(f"[START] task={task}\n")
+        sys.stdout.flush()
 
-    sys.stdout.write("[STEP] step=1 reward=0.8\n")
-    sys.stdout.flush()
+        obs = env.reset()
+        required_actions = [log["action"] for log in obs.access_logs]
 
-    sys.stdout.write("[END] task=iam score=0.8 steps=1\n")
-    sys.stdout.flush()
+        action = IAMAction(
+            role_name="AutoAgent",
+            updated_policy={
+                "RoleName": "AutoAgent",
+                "Statement": [
+                    {"Effect": "Allow", "Action": required_actions, "Resource": "*"}
+                ]
+            },
+            justification="Auto policy reduction"
+        )
+
+        obs, reward, done, info = env.step(action)
+
+        sys.stdout.write(f"[STEP] step=1 reward={reward.score}\n")
+        sys.stdout.flush()
+
+        sys.stdout.write(f"[END] task={task} score={reward.score} steps=1\n")
+        sys.stdout.flush()
