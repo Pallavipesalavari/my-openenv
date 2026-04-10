@@ -7,7 +7,7 @@ name = "iam-privilege-reducer"
 version = "0.1.0"
 description = "OpenEnv: IAM Privilege Reducer for Cloud Security"
 authors = [
-    {name = "Pallavi Pesalavari"}
+    {name = "PESALAVARI PALLAVI"}
 ]
 readme = "README.md"
 requires-python = ">=3.10,<4.0"
@@ -15,12 +15,16 @@ requires-python = ">=3.10,<4.0"
 dependencies = [
     "fastapi",
     "uvicorn",
-    "openai",
+    "openai>=2.7.2",
     "pydantic",
-    "openenv-core>=0.2.0"
+    "openenv-core==0.2.0"
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest"
 ]
+
+# ✅ THIS IS REQUIRED (DO NOT MISS)
+[project.scripts]
+server = "server.app:main"
