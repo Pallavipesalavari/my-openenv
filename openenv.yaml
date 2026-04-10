@@ -1,3 +1,4 @@
 version: 1.0
-name: "IAM Privilege Reducer"
-description: "A deterministic environment for reducing AWS IAM permissions to least-privilege."
+name: iam_privilege_reducer
+description: A deterministic environment for reducing AWS IAM permissions to least-privilege
+entrypoint: inference.py
