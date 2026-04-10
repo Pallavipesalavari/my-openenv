@@ -1,6 +1,11 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Dict, Any
+import uvicorn
+import sys
+
+# Fix import path (important in Docker)
+sys.path.append(".")
 
 from env import IAMPrivilegeEnv
 from models import IAMAction
@@ -35,4 +40,14 @@ def step(data: StepInput):
         "reward": reward.score,
         "done": done,
         "info": info
-                       }
+    }
+
+
+# ✅ REQUIRED for OpenEnv
+def main():
+    uvicorn.run(app, host="0.0.0.0", port=7860)
+
+
+# ✅ REQUIRED entrypoint
+if __name__ == "__main__":
+    main()
