@@ -18,7 +18,7 @@ class IAMPrivilegeEnv:
         self.done = False
 
         self.last_reward = IAMReward(
-            score=0.0,
+            score=0.1,  # ✅ never 0
             permissions_removed=0,
             workflows_broken=0
         )
@@ -50,7 +50,7 @@ class IAMPrivilegeEnv:
                 {}
             )
 
-        # ✅ FIX: Handle None safely
+        # ✅ Handle None safely
         if not action.updated_policy:
             feedback = "Invalid action: No policy provided."
             self.done = True
@@ -61,7 +61,7 @@ class IAMPrivilegeEnv:
                     access_logs=self.logs,
                     feedback=feedback
                 ),
-                IAMReward(score=0.0, permissions_removed=0, workflows_broken=0),
+                IAMReward(score=0.1, permissions_removed=0, workflows_broken=0),  # ✅ not 0
                 True,
                 {}
             )
@@ -72,7 +72,6 @@ class IAMPrivilegeEnv:
         required = set(self.state["required_actions"])
         forbidden = set(self.state["forbidden_actions"])
 
-        # ✅ FIX: Safe extraction
         new_actions = []
 
         statements = self.current_policy.get("Statement", [])
@@ -91,23 +90,30 @@ class IAMPrivilegeEnv:
 
         workflows_broken = len(required - new_actions_set)
         permissions_removed = len(forbidden - new_actions_set)
-        total_forbidden = max(len(forbidden), 1)  # avoid divide by zero
+        total_forbidden = max(len(forbidden), 1)
 
-        # --- SCORING ---
+        # ✅ FIXED SCORING (STRICTLY BETWEEN 0 AND 1)
         if workflows_broken > 0:
-            score = 0.0
+            score = 0.1
             feedback = f"Failed: Broke {workflows_broken} workflows."
 
         elif permissions_removed == total_forbidden:
-            score = 1.0
+            score = 0.9
             feedback = "Success: Perfect least-privilege policy."
 
         elif permissions_removed > 0:
             score = permissions_removed / total_forbidden
+
+            # ✅ ensure strictly between (0,1)
+            if score <= 0:
+                score = 0.1
+            elif score >= 1:
+                score = 0.9
+
             feedback = "Partial success: Some permissions removed."
 
         else:
-            score = 0.0
+            score = 0.1
             feedback = "Failed: No unnecessary permissions removed."
 
         self.done = True
