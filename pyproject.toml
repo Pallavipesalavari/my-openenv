@@ -10,12 +10,14 @@ authors = [
     {name = "Pallavi Pesalavari"}
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<4.0"
+
 dependencies = [
     "fastapi",
     "uvicorn",
     "openai",
-    "pydantic"
+    "pydantic",
+    "openenv-core>=0.2.0"
 ]
 
 [project.optional-dependencies]
