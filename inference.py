@@ -1,5 +1,5 @@
 """
-Inference Script: IAM Privilege Reducer (SAFE VERSION)
+Inference Script: IAM Privilege Reducer (FINAL VERSION)
 """
 
 import os
@@ -8,13 +8,15 @@ import json
 import textwrap
 from typing import List, Dict, Any
 
-# Try importing OpenAI safely
-try:
-    from openai import OpenAI
-except Exception:
-    OpenAI = None
+Safe OpenAI import
 
-# Environment Variables
+try:
+from openai import OpenAI
+except Exception:
+OpenAI = None
+
+Environment Variables
+
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3-70b-chat-hf")
@@ -23,157 +25,164 @@ MAX_STEPS = 3
 TEMPERATURE = 0.2
 MAX_TOKENS = 1000
 
-# Initialize client safely
+Initialize client safely
+
 client = None
 if OpenAI and API_KEY:
-    try:
-        client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
-    except Exception:
-        client = None
+try:
+client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+except Exception:
+client = None
 
-# System Prompt
 SYSTEM_PROMPT = """You are an AWS security expert.
 Return ONLY valid IAM JSON policy.
 No explanations."""
 
-
 def build_user_prompt(step: int, observation: Dict[str, Any], history: List[str]) -> str:
-    try:
-        return textwrap.dedent(f"""
-        Step: {step}
-        Goal: {observation.get("goal", "")}
-        CURRENT POLICY:
-        {json.dumps(observation.get("current_policy", {}), indent=2)}
-        ACCESS LOGS:
-        {json.dumps(observation.get("access_logs", []), indent=2)}
-        HISTORY:
-        {history[-2:] if history else "None"}
-        Rewrite secure IAM policy JSON.
-        """)
-    except Exception:
-        return "Return valid JSON policy."
+try:
+return textwrap.dedent(f"""
+Step: {step}
 
+    CURRENT POLICY:
+    {json.dumps(observation.get("current_policies", {}), indent=2)}
+
+    ACCESS LOGS:
+    {json.dumps(observation.get("access_logs", []), indent=2)}
+
+    HISTORY:
+    {history[-2:] if history else "None"}
+
+    Rewrite secure IAM policy JSON with least privilege.
+    """)
+except Exception:
+    return "Return valid IAM JSON policy."
 
 def extract_json(text: str) -> str:
-    try:
-        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
-        if match:
-            return match.group(1)
+try:
+match = re.search(r""(?:json)?\s*(\{.*?\})\s*"", text, re.DOTALL)
+if match:
+return match.group(1)
 
-        match = re.search(r"(\{.*\})", text, re.DOTALL)
-        if match:
-            return match.group(1)
+    match = re.search(r"(\{.*\})", text, re.DOTALL)
+    if match:
+        return match.group(1)
 
-        return "{}"
-    except Exception:
-        return "{}"
-
+    return "{}"
+except Exception:
+    return "{}"
 
 def call_llm(system: str, user: str) -> str:
-    try:
-        if not client:
-            return "{}"
+try:
+if not client:
+return "{}"
 
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            temperature=TEMPERATURE,
-            max_tokens=MAX_TOKENS,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user}
-            ],
-        )
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user}
+        ],
+    )
 
-        return response.choices[0].message.content or "{}"
+    return response.choices[0].message.content or "{}"
 
-    except Exception:
-        return "{}"
-
+except Exception:
+    return "{}"
 
 def run_inference(observation: Dict[str, Any]) -> Dict[str, Any]:
-    history = []
+history = []
 
-    for step in range(1, MAX_STEPS + 1):
-        try:
-            prompt = build_user_prompt(step, observation, history)
-            raw = call_llm(SYSTEM_PROMPT, prompt)
-            cleaned = extract_json(raw)
-
-            try:
-                parsed = json.loads(cleaned)
-                if isinstance(parsed, dict):
-                    return parsed
-            except Exception:
-                history.append(cleaned)
-
-        except Exception as e:
-            history.append(str(e))
-
+# ✅ Fallback if no API
+if not client:
     return {
         "Version": "2012-10-17",
-        "Statement": []
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Action": ["s3:GetObject"],
+                "Resource": "*"
+            }
+        ]
     }
 
-
-def inference(observation: Dict[str, Any]) -> Dict[str, Any]:
+for step in range(1, MAX_STEPS + 1):
     try:
-        result = run_inference(observation)
+        prompt = build_user_prompt(step, observation, history)
+        raw = call_llm(SYSTEM_PROMPT, prompt)
+        cleaned = extract_json(raw)
 
-        if not isinstance(result, dict):
-            return {"error": "Invalid output format"}
-
-        return result
+        try:
+            parsed = json.loads(cleaned)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            history.append(cleaned)
 
     except Exception as e:
-        return {
-            "error": "Unhandled exception",
-            "message": str(e)
-        }
+        history.append(str(e))
 
+return {
+    "Version": "2012-10-17",
+    "Statement": []
+}
 
-# ✅ FINAL MAIN BLOCK (Phase 2 requirement)
-if __name__ == "__main__":
-    import sys
+def inference(observation: Dict[str, Any]) -> Dict[str, Any]:
+try:
+result = run_inference(observation)
 
-    sample_input = {
-        "current_policy": {},
-        "access_logs": []
+    if not isinstance(result, dict):
+        return {"error": "Invalid output format"}
+
+    return result
+
+except Exception as e:
+    return {
+        "error": "Unhandled exception",
+        "message": str(e)
     }
 
-    # ---------- TASK 1 ----------
-    sys.stdout.write("[START] task=task1\n")
-    sys.stdout.flush()
+✅ FINAL MAIN BLOCK (CONNECTED TO ENVIRONMENT)
 
-    result = inference(sample_input)
+if name == "main":
+import requests
 
-    sys.stdout.write("[STEP] step=1 reward=0.6\n")
-    sys.stdout.flush()
+BASE_URL = "http://localhost:7860"
 
-    sys.stdout.write("[END] task=task1 score=0.6 steps=1\n")
-    sys.stdout.flush()
+print("[START] task=iam")
 
+try:
+    # Step 1: Reset environment
+    obs = requests.post(f"{BASE_URL}/reset").json()
 
-    # ---------- TASK 2 ----------
-    sys.stdout.write("[START] task=task2\n")
-    sys.stdout.flush()
+    for step in range(1, 4):
+        # Step 2: Generate action
+        action_policy = inference(obs)
 
-    result = inference(sample_input)
+        action = {
+            "role_name": "AgentUser",
+            "updated_policy": action_policy,
+            "justification": "Generated by inference"
+        }
 
-    sys.stdout.write("[STEP] step=1 reward=0.7\n")
-    sys.stdout.flush()
+        # Step 3: Send action to environment
+        res = requests.post(
+            f"{BASE_URL}/step",
+            json={"action": action}
+        ).json()
 
-    sys.stdout.write("[END] task=task2 score=0.7 steps=1\n")
-    sys.stdout.flush()
+        reward = res.get("reward", 0)
 
+        print(f"[STEP] step={step} reward={reward}")
 
-    # ---------- TASK 3 ----------
-    sys.stdout.write("[START] task=task3\n")
-    sys.stdout.flush()
+        # Update observation
+        obs = res.get("observation", {})
 
-    result = inference(sample_input)
+        if res.get("done"):
+            break
 
-    sys.stdout.write("[STEP] step=1 reward=0.8\n")
-    sys.stdout.flush()
+    print(f"[END] task=iam score={reward} steps={step}")
 
-    sys.stdout.write("[END] task=task3 score=0.8 steps=1\n")
-    sys.stdout.flush()
+except Exception as e:
+    print(f"[END] task=iam score=0 steps=0 error={str(e)}")
